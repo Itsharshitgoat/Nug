@@ -60,6 +60,10 @@ jobs:
           </plist>
           EOF
 
+      - name: Codesign App
+        run: |
+          codesign --force --deep -s - "build/Nuggs.app"
+
       - name: Install create-dmg
         run: brew install create-dmg
 

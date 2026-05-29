@@ -22,7 +22,7 @@ let package = Package(
         .testTarget(
             name: "NuggsTests",
             dependencies: ["Nuggs"],
-            path: "NuggsTests"
+            path: "Tests"
         )
     ]
 )

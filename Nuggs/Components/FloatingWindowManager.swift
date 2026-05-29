@@ -66,47 +66,12 @@ class FloatingWindowManager: ObservableObject {
     }
 
     private func setupTracking() {
-        for monitor in eventMonitors {
-            NSEvent.removeMonitor(monitor)
-        }
-        eventMonitors.removeAll()
+        // We removed NSEvent monitors for mouse movement because they require Accessibility permissions.
+        // Instead, we poll NSEvent.mouseLocation inside our CVDisplayLink (which requires no permissions).
 
-        let globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]) { [weak self] event in
-            self?.handleMouseMoved()
-        }
-        if let globalMonitor = globalMonitor {
-            eventMonitors.append(globalMonitor)
-        }
-
-        let localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .mouseEntered, .mouseExited]) { [weak self] event in
-            self?.handleMouseMoved()
-            return event
-        }
-        if let localMonitor = localMonitor {
-            eventMonitors.append(localMonitor)
-        }
-
-        // Monitor global clicks to dismiss the window
-        let clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
-            self?.handleGlobalClick()
-        }
-        if let clickMonitor = clickMonitor {
-            eventMonitors.append(clickMonitor)
-        }
-
-        // Also local click monitor to catch clicks inside the app and keep it focused
-        let localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { event in
-            return event
-        }
-        if let localClickMonitor = localClickMonitor {
-            eventMonitors.append(localClickMonitor)
-        }
-    }
-
-    private func handleGlobalClick() {
-        // If we click outside the window, dismiss it naturally
-        if self.isVisible && !self.isHovered {
-            dismiss()
+        // We listen to app resignation to dismiss the window (like Spotlight).
+        NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.dismiss()
         }
     }
 
@@ -127,6 +92,8 @@ class FloatingWindowManager: ObservableObject {
         DispatchQueue.main.async {
             self.isVisible = true
             self.window?.ignoresMouseEvents = false // Re-enable interaction
+
+            NSApp.activate(ignoringOtherApps: true)
 
             // Instantly snap the current position to the mouse so it grows from there natively
             self.isFirstDisplay = true
@@ -150,7 +117,10 @@ class FloatingWindowManager: ObservableObject {
             if abs(dx) > 5 && abs(dx) > abs(dy) * 1.5 {
                 let direction = dx > 0 ? 1 : -1
 
-                if lastDirection != 0 && direction != lastDirection {
+                if lastDirection == 0 {
+                    lastDirection = direction
+                    lastReversalTime = currentTime
+                } else if direction != lastDirection {
                     // Reversal detected!
                     let timeSinceLastReversal = currentTime - lastReversalTime
 
@@ -167,14 +137,13 @@ class FloatingWindowManager: ObservableObject {
                         shakeReversals = 0
                         triggerSummon(mouseLoc: mouseLoc)
                     }
+                    lastDirection = direction
                 }
-
-                lastDirection = direction
             }
         }
 
         // Reset shake count if idle for too long
-        if currentTime - lastReversalTime > 0.4 {
+        if lastDirection != 0 && (currentTime - lastReversalTime > 0.4) {
             shakeReversals = 0
             lastDirection = 0
         }
@@ -279,6 +248,8 @@ class FloatingWindowManager: ObservableObject {
         lastUpdateTime = currentTime
 
         DispatchQueue.main.async {
+            self.handleMouseMoved()
+
             guard let window = self.window else { return }
 
             if self.isHovered {
