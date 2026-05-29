@@ -59,6 +59,9 @@ struct ContentView: View {
             // but we leave it enabled inside the interaction area if the user explicitly drags it.
             window.isMovableByWindowBackground = true
 
+            window.level = .floating
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
             // Connect to manager
             FloatingWindowManager.shared.window = window
         }

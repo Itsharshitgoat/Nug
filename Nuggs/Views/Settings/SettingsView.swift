@@ -96,6 +96,9 @@ struct SettingsView: View {
             window.standardWindowButton(.closeButton)?.isHidden = false
             window.standardWindowButton(.miniaturizeButton)?.isHidden = false
             window.standardWindowButton(.zoomButton)?.isHidden = false
+
+            window.level = .floating
+            window.collectionBehavior = [.canJoinAllSpaces]
         }
     }
 

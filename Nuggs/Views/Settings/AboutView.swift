@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct AboutView: View {
+    @State private var isAnimating: Bool = false
+
     var body: some View {
         VStack(spacing: 32) {
             // App Icon & Info Section
@@ -17,8 +19,12 @@ struct AboutView: View {
                         .shadow(color: Color.white.opacity(0.1), radius: 1, x: 0, y: 1)
                         .padding(.top, 20)
                         // Native scale animation on appear
-                        .scaleEffect(1.0)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: true)
+                        .scaleEffect(isAnimating ? 1.0 : 0.8)
+                        .opacity(isAnimating ? 1.0 : 0.0)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: isAnimating)
+                        .onAppear {
+                            isAnimating = true
+                        }
                 } else {
                     // Fallback if icon is missing
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
