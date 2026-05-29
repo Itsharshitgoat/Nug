@@ -114,6 +114,7 @@ class FloatingWindowManager: ObservableObject {
         DispatchQueue.main.async {
             self.isVisible = false
             self.window?.ignoresMouseEvents = true // Disable interactions while invisible
+            self.stopDisplayLink()
         }
     }
 
@@ -252,6 +253,9 @@ class FloatingWindowManager: ObservableObject {
             window.setFrameOrigin(self.currentPosition)
             isFirstDisplay = false
         }
+
+        // Start animating towards the target position
+        startDisplayLink()
     }
 
     private func setupDisplayLink() {
@@ -267,10 +271,22 @@ class FloatingWindowManager: ObservableObject {
 
         if let link = self.displayLink {
             CVDisplayLinkSetOutputCallback(link, displayLinkOutputCallback, Unmanaged.passUnretained(self).toOpaque())
+        }
+    }
+
+    private func startDisplayLink() {
+        guard let link = self.displayLink else { return }
+        if !CVDisplayLinkIsRunning(link) {
+            lastUpdateTime = CACurrentMediaTime()
             CVDisplayLinkStart(link)
         }
+    }
 
-        lastUpdateTime = CACurrentMediaTime()
+    private func stopDisplayLink() {
+        guard let link = self.displayLink else { return }
+        if CVDisplayLinkIsRunning(link) {
+            CVDisplayLinkStop(link)
+        }
     }
 
     private func updateFrame() {
@@ -286,6 +302,7 @@ class FloatingWindowManager: ObservableObject {
                     self.isMoving = false
                     self.velocity = .zero // Instantly halt when hovered
                 }
+                self.stopDisplayLink()
                 return
             }
 
@@ -306,6 +323,7 @@ class FloatingWindowManager: ObservableObject {
                 if self.isMoving {
                     self.isMoving = false
                 }
+                self.stopDisplayLink()
                 return
             }
 
