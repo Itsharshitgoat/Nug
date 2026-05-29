@@ -31,6 +31,11 @@ jobs:
           # Copy the executable into the bundle
           cp "$EXECUTABLE_PATH" build/Nuggs.app/Contents/MacOS/
 
+          # Copy the icon file if it exists
+          if [ -f "Nuggs/Resources/icon.icns" ]; then
+            cp "Nuggs/Resources/icon.icns" build/Nuggs.app/Contents/Resources/
+          fi
+
           # Create a basic Info.plist
           cat << 'EOF' > build/Nuggs.app/Contents/Info.plist
           <?xml version="1.0" encoding="UTF-8"?>
@@ -41,6 +46,8 @@ jobs:
             <string>Nuggs</string>
             <key>CFBundleIdentifier</key>
             <string>com.example.Nuggs</string>
+            <key>CFBundleIconFile</key>
+            <string>icon.icns</string>
             <key>CFBundleName</key>
             <string>Nuggs</string>
             <key>CFBundleVersion</key>

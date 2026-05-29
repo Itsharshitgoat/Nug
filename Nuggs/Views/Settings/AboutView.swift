@@ -5,33 +5,27 @@ struct AboutView: View {
         VStack(spacing: 32) {
             // App Icon & Info Section
             VStack(spacing: 16) {
-                // Placeholder for App Icon
-                ZStack {
-                    RoundedRectangle(cornerRadius: 32, style: .continuous)
-                        .fill(LinearGradient(gradient: Gradient(colors: [Color.gray.opacity(0.8), Color.gray.opacity(0.3)]), startPoint: .top, endPoint: .bottom))
-                        .frame(width: 140, height: 140)
-                        .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 32, style: .continuous)
-                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                        )
-
-                    // Simple representation of the icon from the image
-                    VStack(spacing: 0) {
-                        Circle()
-                            .fill(Color.yellow)
-                            .frame(width: 16, height: 16)
-                            .offset(x: 40, y: -20)
-                            .shadow(color: Color.yellow.opacity(0.5), radius: 4)
-
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 60))
-                            .foregroundColor(.white)
-                            .shadow(color: Color.black.opacity(0.2), radius: 4)
-                            .padding(.top, 10)
-                    }
+                // Application Icon Integration
+                if let appIcon = NSApplication.shared.applicationIconImage {
+                    Image(nsImage: appIcon)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 120, height: 120)
+                        // Soft, spatial ambient shadow
+                        .shadow(color: Color.black.opacity(0.15), radius: 15, x: 0, y: 8)
+                        // Subtle elevation highlight
+                        .shadow(color: Color.white.opacity(0.1), radius: 1, x: 0, y: 1)
+                        .padding(.top, 20)
+                        // Native scale animation on appear
+                        .scaleEffect(1.0)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: true)
+                } else {
+                    // Fallback if icon is missing
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: 120, height: 120)
+                        .padding(.top, 20)
                 }
-                .padding(.top, 20)
 
                 VStack(spacing: 8) {
                     Text("AI at the shaking of your mouse")
