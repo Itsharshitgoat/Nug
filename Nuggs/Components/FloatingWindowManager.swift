@@ -51,7 +51,6 @@ class FloatingWindowManager: ObservableObject {
     private var isFirstDisplay: Bool = true
 
     private var lastUpdateTime: TimeInterval = 0
-    private var lastActiveScreen: NSScreen?
 
     init() {
         setupDisplayLink()
@@ -67,47 +66,12 @@ class FloatingWindowManager: ObservableObject {
     }
 
     private func setupTracking() {
-        for monitor in eventMonitors {
-            NSEvent.removeMonitor(monitor)
-        }
-        eventMonitors.removeAll()
+        // We removed NSEvent monitors for mouse movement because they require Accessibility permissions.
+        // Instead, we poll NSEvent.mouseLocation inside our CVDisplayLink (which requires no permissions).
 
-        let globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]) { [weak self] event in
-            self?.handleMouseMoved()
-        }
-        if let globalMonitor = globalMonitor {
-            eventMonitors.append(globalMonitor)
-        }
-
-        let localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .mouseEntered, .mouseExited]) { [weak self] event in
-            self?.handleMouseMoved()
-            return event
-        }
-        if let localMonitor = localMonitor {
-            eventMonitors.append(localMonitor)
-        }
-
-        // Monitor global clicks to dismiss the window
-        let clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
-            self?.handleGlobalClick()
-        }
-        if let clickMonitor = clickMonitor {
-            eventMonitors.append(clickMonitor)
-        }
-
-        // Also local click monitor to catch clicks inside the app and keep it focused
-        let localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { event in
-            return event
-        }
-        if let localClickMonitor = localClickMonitor {
-            eventMonitors.append(localClickMonitor)
-        }
-    }
-
-    private func handleGlobalClick() {
-        // If we click outside the window, dismiss it naturally
-        if self.isVisible && !self.isHovered {
-            dismiss()
+        // We listen to app resignation to dismiss the window (like Spotlight).
+        NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.dismiss()
         }
     }
 
@@ -128,6 +92,8 @@ class FloatingWindowManager: ObservableObject {
         DispatchQueue.main.async {
             self.isVisible = true
             self.window?.ignoresMouseEvents = false // Re-enable interaction
+
+            NSApp.activate(ignoringOtherApps: true)
 
             // Instantly snap the current position to the mouse so it grows from there natively
             self.isFirstDisplay = true
@@ -151,7 +117,10 @@ class FloatingWindowManager: ObservableObject {
             if abs(dx) > 5 && abs(dx) > abs(dy) * 1.5 {
                 let direction = dx > 0 ? 1 : -1
 
-                if lastDirection != 0 && direction != lastDirection {
+                if lastDirection == 0 {
+                    lastDirection = direction
+                    lastReversalTime = currentTime
+                } else if direction != lastDirection {
                     // Reversal detected!
                     let timeSinceLastReversal = currentTime - lastReversalTime
 
@@ -168,14 +137,13 @@ class FloatingWindowManager: ObservableObject {
                         shakeReversals = 0
                         triggerSummon(mouseLoc: mouseLoc)
                     }
+                    lastDirection = direction
                 }
-
-                lastDirection = direction
             }
         }
 
         // Reset shake count if idle for too long
-        if currentTime - lastReversalTime > 0.4 {
+        if lastDirection != 0 && (currentTime - lastReversalTime > 0.4) {
             shakeReversals = 0
             lastDirection = 0
         }
@@ -205,35 +173,11 @@ class FloatingWindowManager: ObservableObject {
         }
     }
 
-    private func startDisplayLink() {
-        if let link = displayLink, !CVDisplayLinkIsRunning(link) {
-            lastUpdateTime = CACurrentMediaTime()
-            CVDisplayLinkStart(link)
-        }
-    }
-
-    private func stopDisplayLink() {
-        if let link = displayLink, CVDisplayLinkIsRunning(link) {
-            CVDisplayLinkStop(link)
-        }
-    }
-
     private func updateTargetPosition(mouseLoc: CGPoint) {
         guard let window = window else { return }
 
         // Find the screen containing the cursor to properly support multi-monitor setups
-        // Fast path: Check last active screen or current window screen to avoid NSScreen.screens allocation
-        var activeScreen: NSScreen?
-        if let cached = lastActiveScreen, NSMouseInRect(mouseLoc, cached.frame, false) {
-            activeScreen = cached
-        } else if let wScreen = window.screen, NSMouseInRect(mouseLoc, wScreen.frame, false) {
-            activeScreen = wScreen
-        } else {
-            // Slow path: query all screens
-            activeScreen = NSScreen.screens.first { NSMouseInRect(mouseLoc, $0.frame, false) } ?? window.screen ?? NSScreen.main
-        }
-
-        lastActiveScreen = activeScreen
+        let activeScreen = NSScreen.screens.first { NSMouseInRect(mouseLoc, $0.frame, false) } ?? window.screen ?? NSScreen.main
         guard let screen = activeScreen else { return }
 
         let windowSize = window.frame.size
@@ -276,9 +220,6 @@ class FloatingWindowManager: ObservableObject {
             self.currentPosition = self.targetPosition
             window.setFrameOrigin(self.currentPosition)
             isFirstDisplay = false
-        } else {
-            // Only start animating if we are already visible and not the first display snap
-            startDisplayLink()
         }
     }
 
@@ -288,18 +229,17 @@ class FloatingWindowManager: ObservableObject {
         self.displayLink = link
 
         let displayLinkOutputCallback: CVDisplayLinkOutputCallback = { (_, _, _, _, _, displayLinkContext) -> CVReturn in
-            guard let context = displayLinkContext else {
-                return kCVReturnError
-            }
-            let manager = Unmanaged<FloatingWindowManager>.fromOpaque(context).takeUnretainedValue()
+            let manager = Unmanaged<FloatingWindowManager>.fromOpaque(displayLinkContext!).takeUnretainedValue()
             manager.updateFrame()
             return kCVReturnSuccess
         }
 
         if let link = self.displayLink {
             CVDisplayLinkSetOutputCallback(link, displayLinkOutputCallback, Unmanaged.passUnretained(self).toOpaque())
-            // Note: We don't start the link here anymore. It will be started when needed.
+            CVDisplayLinkStart(link)
         }
+
+        lastUpdateTime = CACurrentMediaTime()
     }
 
     private func updateFrame() {
@@ -308,6 +248,8 @@ class FloatingWindowManager: ObservableObject {
         lastUpdateTime = currentTime
 
         DispatchQueue.main.async {
+            self.handleMouseMoved()
+
             guard let window = self.window else { return }
 
             if self.isHovered {
@@ -315,7 +257,6 @@ class FloatingWindowManager: ObservableObject {
                     self.isMoving = false
                     self.velocity = .zero // Instantly halt when hovered
                 }
-                self.stopDisplayLink()
                 return
             }
 
@@ -336,7 +277,6 @@ class FloatingWindowManager: ObservableObject {
                 if self.isMoving {
                     self.isMoving = false
                 }
-                self.stopDisplayLink()
                 return
             }
 
