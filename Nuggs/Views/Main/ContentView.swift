@@ -31,12 +31,12 @@ struct ContentView: View {
                 .opacity(floatingManager.isMoving ? 0.95 : 1.0)
                 .animation(.easeInOut(duration: 0.3), value: floatingManager.isMoving)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        // Dynamic depth & shadow behavior
+        .clipShape(AsymmetricalWindowShape(radius: 28))
+        // Dynamic depth & shadow behavior applied to custom shape
         .shadow(
             color: Color.black.opacity(floatingManager.isMoving ? 0.3 : 0.2),
             radius: floatingManager.isMoving ? 25 : 20,
-            x: 0,
+            x: -2, // Slight left bias to emphasize the sharp architectural corner
             y: floatingManager.isMoving ? 15 : 10
         )
         // Subtle spatial elevation scale
@@ -44,7 +44,7 @@ struct ContentView: View {
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: floatingManager.isMoving)
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: floatingManager.isHovered)
         .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
+            AsymmetricalWindowShape(radius: 28)
                 .stroke(Color.white.opacity(0.15), lineWidth: 1)
         )
         // Extract window and link to FloatingWindowManager
