@@ -79,7 +79,6 @@ class FloatingWindowManager: ObservableObject {
         DispatchQueue.main.async {
             self.isVisible = false
             self.window?.ignoresMouseEvents = true // Disable interactions while invisible
-            self.stopDisplayLink()
         }
     }
 
@@ -222,9 +221,6 @@ class FloatingWindowManager: ObservableObject {
             window.setFrameOrigin(self.currentPosition)
             isFirstDisplay = false
         }
-
-        // Start animating towards the target position
-        startDisplayLink()
     }
 
     private func setupDisplayLink() {
@@ -240,22 +236,10 @@ class FloatingWindowManager: ObservableObject {
 
         if let link = self.displayLink {
             CVDisplayLinkSetOutputCallback(link, displayLinkOutputCallback, Unmanaged.passUnretained(self).toOpaque())
-        }
-    }
-
-    private func startDisplayLink() {
-        guard let link = self.displayLink else { return }
-        if !CVDisplayLinkIsRunning(link) {
-            lastUpdateTime = CACurrentMediaTime()
             CVDisplayLinkStart(link)
         }
-    }
 
-    private func stopDisplayLink() {
-        guard let link = self.displayLink else { return }
-        if CVDisplayLinkIsRunning(link) {
-            CVDisplayLinkStop(link)
-        }
+        lastUpdateTime = CACurrentMediaTime()
     }
 
     private func updateFrame() {
@@ -273,29 +257,44 @@ class FloatingWindowManager: ObservableObject {
                     self.isMoving = false
                     self.velocity = .zero // Instantly halt when hovered
                 }
-                self.stopDisplayLink()
                 return
             }
 
-            let nextState = SpringPhysics.calculateNextState(
-                currentPosition: self.currentPosition,
-                targetPosition: self.targetPosition,
-                velocity: self.velocity,
-                isMoving: self.isMoving,
-                dt: dt,
-                stiffness: self.stiffness,
-                damping: self.damping
-            )
+            let current = self.currentPosition
+            let target = self.targetPosition
 
-            if self.currentPosition != nextState.currentPosition {
-                self.currentPosition = nextState.currentPosition
-                window.setFrameOrigin(self.currentPosition)
+            let dx = target.x - current.x
+            let dy = target.y - current.y
+            let distanceSq = dx*dx + dy*dy
+
+            // Sleep threshold
+            if distanceSq < 0.5 && self.velocity.x * self.velocity.x + self.velocity.y * self.velocity.y < 0.5 {
+                if current != target {
+                    self.currentPosition = target
+                    window.setFrameOrigin(self.currentPosition)
+                }
+                self.velocity = .zero
+                if self.isMoving {
+                    self.isMoving = false
+                }
+                return
             }
 
-            self.velocity = nextState.velocity
-            if self.isMoving != nextState.isMoving {
-                self.isMoving = nextState.isMoving
+            if !self.isMoving {
+                self.isMoving = true
             }
+
+            // Apply damped spring motion
+            let forceX = (target.x - current.x) * self.stiffness - self.velocity.x * self.damping
+            let forceY = (target.y - current.y) * self.stiffness - self.velocity.y * self.damping
+
+            self.velocity.x += forceX * CGFloat(dt)
+            self.velocity.y += forceY * CGFloat(dt)
+
+            self.currentPosition.x += self.velocity.x * CGFloat(dt)
+            self.currentPosition.y += self.velocity.y * CGFloat(dt)
+
+            window.setFrameOrigin(self.currentPosition)
         }
     }
 }
