@@ -38,7 +38,7 @@ struct AboutView: View {
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.secondary)
 
-                    Text("Nuggs - 1.0v")
+                    Text("Nuggs 1.0v")
                         .font(.system(size: 13, weight: .regular))
                         .foregroundColor(.secondary.opacity(0.8))
                 }
