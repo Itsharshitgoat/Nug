@@ -47,7 +47,7 @@ class FloatingWindowManager: ObservableObject {
     private let cursorOffsetLeft: CGFloat = -24.0
     private let cursorOffsetBelow: CGFloat = 24.0
 
-    internal var preferredSideIsRight: Bool = true
+    private var preferredSideIsRight: Bool = true
     private var isFirstDisplay: Bool = true
 
     private var lastUpdateTime: TimeInterval = 0
@@ -180,20 +180,9 @@ class FloatingWindowManager: ObservableObject {
         let activeScreen = NSScreen.screens.first { NSMouseInRect(mouseLoc, $0.frame, false) } ?? window.screen ?? NSScreen.main
         guard let screen = activeScreen else { return }
 
-        self.targetPosition = calculateTargetPosition(
-            mouseLoc: mouseLoc,
-            windowSize: window.frame.size,
-            screenFrame: screen.visibleFrame
-        )
+        let windowSize = window.frame.size
+        let screenFrame = screen.visibleFrame // safe visible bounds
 
-        if isFirstDisplay {
-            self.currentPosition = self.targetPosition
-            window.setFrameOrigin(self.currentPosition)
-            isFirstDisplay = false
-        }
-    }
-
-    internal func calculateTargetPosition(mouseLoc: CGPoint, windowSize: CGSize, screenFrame: CGRect) -> CGPoint {
         // Determine available space
         let neededSpaceRight = mouseLoc.x + cursorOffsetRight + windowSize.width
 
@@ -225,7 +214,13 @@ class FloatingWindowManager: ObservableObject {
         targetX = max(screenFrame.minX + 16, min(targetX, screenFrame.maxX - windowSize.width - 16))
         targetY = max(screenFrame.minY + 16, min(targetY, screenFrame.maxY - windowSize.height - 16))
 
-        return CGPoint(x: targetX, y: targetY)
+        self.targetPosition = CGPoint(x: targetX, y: targetY)
+
+        if isFirstDisplay {
+            self.currentPosition = self.targetPosition
+            window.setFrameOrigin(self.currentPosition)
+            isFirstDisplay = false
+        }
     }
 
     private func setupDisplayLink() {
