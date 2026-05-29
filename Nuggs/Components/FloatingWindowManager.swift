@@ -51,6 +51,7 @@ class FloatingWindowManager: ObservableObject {
     private var isFirstDisplay: Bool = true
 
     private var lastUpdateTime: TimeInterval = 0
+    private var lastActiveScreen: NSScreen?
 
     init() {
         setupDisplayLink()
@@ -208,7 +209,18 @@ class FloatingWindowManager: ObservableObject {
         guard let window = window else { return }
 
         // Find the screen containing the cursor to properly support multi-monitor setups
-        let activeScreen = NSScreen.screens.first { NSMouseInRect(mouseLoc, $0.frame, false) } ?? window.screen ?? NSScreen.main
+        // Fast path: Check last active screen or current window screen to avoid NSScreen.screens allocation
+        var activeScreen: NSScreen?
+        if let cached = lastActiveScreen, NSMouseInRect(mouseLoc, cached.frame, false) {
+            activeScreen = cached
+        } else if let wScreen = window.screen, NSMouseInRect(mouseLoc, wScreen.frame, false) {
+            activeScreen = wScreen
+        } else {
+            // Slow path: query all screens
+            activeScreen = NSScreen.screens.first { NSMouseInRect(mouseLoc, $0.frame, false) } ?? window.screen ?? NSScreen.main
+        }
+
+        lastActiveScreen = activeScreen
         guard let screen = activeScreen else { return }
 
         let windowSize = window.frame.size
