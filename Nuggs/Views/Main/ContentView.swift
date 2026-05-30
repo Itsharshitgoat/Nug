@@ -56,11 +56,19 @@ struct ContentView: View {
         // Extract window and link to FloatingWindowManager
         .configureWindow { window in
             guard let window = window else { return }
+            window.hasShadow = false
             window.isOpaque = false
             window.backgroundColor = .clear
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
+            window.styleMask.remove(.titled)
             window.styleMask.insert(.fullSizeContentView)
+
+            // Hide standard buttons for Main Window
+            window.standardWindowButton(.closeButton)?.isHidden = true
+            window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+            window.standardWindowButton(.zoomButton)?.isHidden = true
+
             // It floats via the manager, so we typically do not want it easily movable by dragging
             // but we leave it enabled inside the interaction area if the user explicitly drags it.
             window.isMovableByWindowBackground = true

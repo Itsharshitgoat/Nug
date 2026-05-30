@@ -84,6 +84,7 @@ struct SettingsView: View {
         )
         .configureWindow { window in
             guard let window = window else { return }
+            window.hasShadow = false
             window.isOpaque = false
             window.backgroundColor = .clear
             window.titlebarAppearsTransparent = true
