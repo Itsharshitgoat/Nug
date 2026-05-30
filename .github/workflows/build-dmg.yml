@@ -20,6 +20,7 @@ jobs:
         run: |
           # Build the executable using Swift Package Manager
           swift build -c release
+<<<<<<< Updated upstream
 
           # Find the executable
           EXECUTABLE_PATH=$(swift build -c release --show-bin-path)/Nuggs
@@ -31,11 +32,28 @@ jobs:
           # Copy the executable into the bundle
           cp "$EXECUTABLE_PATH" build/Nuggs.app/Contents/MacOS/
 
+=======
+
+          # Find the executable
+          EXECUTABLE_PATH=$(swift build -c release --show-bin-path)/Nuggs
+
+          # Create an app bundle structure manually since this is a Swift Package
+          mkdir -p build/Nuggs.app/Contents/MacOS
+          mkdir -p build/Nuggs.app/Contents/Resources
+
+          # Copy the executable into the bundle
+          cp "$EXECUTABLE_PATH" build/Nuggs.app/Contents/MacOS/
+
+>>>>>>> Stashed changes
           # Copy the icon file if it exists
           if [ -f "Nuggs/Resources/icon.icns" ]; then
             cp "Nuggs/Resources/icon.icns" build/Nuggs.app/Contents/Resources/
           fi
+<<<<<<< Updated upstream
 
+=======
+
+>>>>>>> Stashed changes
           # Create a basic Info.plist
           cat << 'EOF' > build/Nuggs.app/Contents/Info.plist
           <?xml version="1.0" encoding="UTF-8"?>

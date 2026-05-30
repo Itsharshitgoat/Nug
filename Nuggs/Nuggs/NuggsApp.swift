@@ -25,7 +25,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Run in the background (no Dock icon) as requested
         NSApp.setActivationPolicy(.accessory)
-        
+
         // Listen for cmd+, to open settings
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             if event.modifierFlags.contains(.command) && event.characters == "," {
@@ -34,7 +34,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return event
         }
-        
+
         // Load icon from package resources (Settings/About will use this)
         if let url = Bundle.module.url(forResource: "icon", withExtension: "icns", subdirectory: "Resources"),
            let image = NSImage(contentsOf: url) {
